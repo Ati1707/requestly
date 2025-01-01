@@ -17,17 +17,19 @@ jobs:
         with:
           node-version: '20'
 
-      # Step 3: Install dependencies
+      # Step 3: Run install.sh to set up dependencies
       - name: Install dependencies
-        run: npm install
+        run: bash ./install.sh local
 
-      # Step 4: Build the project
+      # Step 4: Build the project using build.sh
       - name: Build all components
-        run: |
-          powershell -Command "chmod +x ./build.sh"
-          bash ./build.sh prod
+        run: bash ./build.sh
 
-      # Step 5: Prepare artifacts for release
+      # Step 5: Run tests using test.sh
+      - name: Run tests
+        run: bash ./test.sh
+
+      # Step 6: Prepare artifacts for release
       - name: Create Release Artifacts
         run: |
           mkdir -p builds
@@ -45,7 +47,7 @@ jobs:
           tar -czvf mv2-dist.tar.gz mv2-dist
           tar -czvf app-dist.tar.gz app-dist
 
-      # Step 6: Create a GitHub release
+      # Step 7: Create a GitHub release
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -57,7 +59,7 @@ jobs:
           draft: false
           prerelease: false
 
-      # Step 7: Upload MV3 artifact
+      # Step 8: Upload MV3 artifact
       - name: Upload MV3 Artifact
         uses: actions/upload-release-asset@v1
         env:
@@ -65,4 +67,27 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: builds/mv3-dist.tar.gz
-          asset_name: mv3-dist.tar.gz▌
+          asset_name: mv3-dist.tar.gz
+          asset_content_type: application/gzip
+
+      # Step 9: Upload MV2 artifact
+      - name: Upload MV2 Artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: builds/mv2-dist.tar.gz
+          asset_name: mv2-dist.tar.gz
+          asset_content_type: application/gzip
+
+      # Step 10: Upload App artifact
+      - name: Upload App Artifact
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: builds/app-dist.tar.gz
+          asset_name: app-dist.tar.gz
+          asset_content_type: application/gzip
