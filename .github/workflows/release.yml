@@ -1,84 +1,68 @@
-name: Build and Release
+name: Build and Release on Commit
 
 on: push
 
 jobs:
   build-and-release:
-    name: Build and Create Release Artifacts
-    runs-on: ubuntu-latest  # Using ubuntu since build scripts are in bash
+    name: Build and Upload Artifacts
+    runs-on: windows-latest  # Use Windows runner
     steps:
+      # Step 1: Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Step 2: Set up Node.js environment
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
+      # Step 3: Install dependencies
       - name: Install dependencies
         run: npm install
-      
+
+      # Step 4: Build the project
       - name: Build all components
         run: |
-           chmod +x ./build.sh
-           ./build.sh prod
+          powershell -Command "chmod +x ./build.sh"
+          bash ./build.sh prod
 
+      # Step 5: Prepare artifacts for release
       - name: Create Release Artifacts
         run: |
-          #Create a folder with name build for storing artifacts
-          mkdir builds
+          mkdir -p builds
           
-          # Create browser extension artifacts
+          # Browser extension artifacts
           cp -r browser-extension/mv3/dist builds/mv3-dist
           cp -r browser-extension/mv2/dist builds/mv2-dist
           
-          # Create react app artifacts
+          # React app artifacts
           cp -r app/dist builds/app-dist
-
-          # zip the artifacts
-          cd builds
-          zip -r mv3-dist.zip mv3-dist
-          zip -r mv2-dist.zip mv2-dist
-          zip -r app-dist.zip app-dist
           
+          # Zip artifacts
+          cd builds
+          tar -czvf mv3-dist.tar.gz mv3-dist
+          tar -czvf mv2-dist.tar.gz mv2-dist
+          tar -czvf app-dist.tar.gz app-dist
 
+      # Step 6: Create a GitHub release
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.run_id }}  # Using the run ID as a unique tag
+          tag_name: ${{ github.run_id }}  # Use run ID as the tag
           release_name: Release ${{ github.run_id }}
           draft: false
           prerelease: false
 
-      - name: Upload Release Artifacts
+      # Step 7: Upload MV3 artifact
+      - name: Upload MV3 Artifact
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: builds/mv3-dist.zip
-          asset_name: mv3-dist.zip
-          asset_content_type: application/zip
-      
-      - name: Upload Release Artifacts MV2
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: builds/mv2-dist.zip
-          asset_name: mv2-dist.zip
-          asset_content_type: application/zip
-      
-      - name: Upload Release Artifacts App
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: builds/app-dist.zip
-          asset_name: app-dist.zip
-          asset_content_type: application/zip
+          asset_path: builds/mv3-dist.tar.gz
+          asset_name: mv3-dist.tar.gz▌
