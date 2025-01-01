@@ -1,0 +1,59 @@
+name: Build and Upload Artifacts
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-upload:
+    name: Build and Upload Artifacts
+    runs-on: windows-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18  # Use the required Node.js version as per package.json
+
+      # Step 3: Install dependencies
+      - name: Install Dependencies
+        run: npm install
+
+      # Step 4: Build the project
+      - name: Build Project
+        run: npm run build
+
+      # Step 5: Compress build artifacts
+      - name: Compress Build Artifacts
+        run: |
+          mkdir output
+          tar -cvzf ./output/requestly-build-windows.tar.gz ./build
+
+      # Step 6: Create a new GitHub Release or update an existing one
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.sha }}  # Use the commit hash as the tag name
+          release_name: Build ${{ github.sha }}
+          draft: false
+          prerelease: false
+
+      # Step 7: Upload the artifacts to the release
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./output/requestly-build-windows.tar.gz
+          asset_name: requestly-build-windows.tar.gz
+          asset_content_type: application/gzip
