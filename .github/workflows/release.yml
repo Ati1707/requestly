@@ -1,56 +1,84 @@
-name: Build and Upload Artifacts
+name: Build and Release
 
 on: push
 
 jobs:
-  build-and-upload:
-    name: Build and Upload Artifacts
-    runs-on: windows-latest
-
+  build-and-release:
+    name: Build and Create Release Artifacts
+    runs-on: ubuntu-latest  # Using ubuntu since build scripts are in bash
     steps:
-      # Step 1: Checkout the repository
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # Step 2: Set up Node.js
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 18  # Use the required Node.js version as per package.json
+          node-version: '20'
 
-      # Step 3: Install dependencies
-      - name: Install Dependencies
+      - name: Install dependencies
         run: npm install
-
-      # Step 4: Build the project
-      - name: Build Project
-        run: npm run build
-
-      # Step 5: Compress build artifacts
-      - name: Compress Build Artifacts
+      
+      - name: Build all components
         run: |
-          mkdir output
-          tar -cvzf ./output/requestly-build-windows.tar.gz ./build
+           chmod +x ./build.sh
+           ./build.sh prod
 
-      # Step 6: Create a new GitHub Release or update an existing one
+      - name: Create Release Artifacts
+        run: |
+          #Create a folder with name build for storing artifacts
+          mkdir builds
+          
+          # Create browser extension artifacts
+          cp -r browser-extension/mv3/dist builds/mv3-dist
+          cp -r browser-extension/mv2/dist builds/mv2-dist
+          
+          # Create react app artifacts
+          cp -r app/dist builds/app-dist
+
+          # zip the artifacts
+          cd builds
+          zip -r mv3-dist.zip mv3-dist
+          zip -r mv2-dist.zip mv2-dist
+          zip -r app-dist.zip app-dist
+          
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.sha }}  # Use the commit hash as the tag name
-          release_name: Build ${{ github.sha }}
+          tag_name: ${{ github.run_id }}  # Using the run ID as a unique tag
+          release_name: Release ${{ github.run_id }}
           draft: false
           prerelease: false
 
-      # Step 7: Upload the artifacts to the release
-      - name: Upload Release Asset
+      - name: Upload Release Artifacts
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./output/requestly-build-windows.tar.gz
-          asset_name: requestly-build-windows.tar.gz
-          asset_content_type: application/gzip
+          asset_path: builds/mv3-dist.zip
+          asset_name: mv3-dist.zip
+          asset_content_type: application/zip
+      
+      - name: Upload Release Artifacts MV2
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: builds/mv2-dist.zip
+          asset_name: mv2-dist.zip
+          asset_content_type: application/zip
+      
+      - name: Upload Release Artifacts App
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: builds/app-dist.zip
+          asset_name: app-dist.zip
+          asset_content_type: application/zip
